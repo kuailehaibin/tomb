@@ -68,6 +68,8 @@ import (
 	"sync"
 )
 
+type Fn func()error
+
 // A Tomb tracks the lifecycle of one or more goroutines as alive,
 // dying or dead, and the reason for their death.
 //
@@ -157,6 +159,23 @@ func (t *Tomb) Go(f func() error) {
 	}
 	t.alive++
 	go t.run(f)
+}
+
+// Gos runs multiple f at a time and tracks its termination.
+func (t *Tomb) Gos(fs ...Fn) {
+	t.init()
+	t.m.Lock()
+	defer t.m.Unlock()
+	select {
+	case <-t.dead:
+		panic("tomb.Go called after all goroutines terminated")
+	default:
+	}
+
+    for _, f := range fs {
+        t.alive++
+        go t.run(f)
+    }
 }
 
 func (t *Tomb) run(f func() error) {
